@@ -1,22 +1,27 @@
 pipeline{
     agent any
+    
     environment{
-        SONAR_HOME= tool "Sonar"
+        SONAR_HOME = tool "sonar"
     }
+    
     stages{
-        stage("Clone Code from GitHub"){
+        stage("Clone Code from Github"){
             steps{
-                git url: "https://github.com/krishnaacharyaa/wanderlust.git", branch: "devops"
+                git url: "https://github.com/ROHITSINGHB/wanderlust.git", branch: "devops"
             }
         }
+        
         stage("SonarQube Quality Analysis"){
             steps{
-                withSonarQubeEnv("Sonar"){
-                    sh "$SONAR_HOME/bin/sonar-scanner -Dsonar.projectName=wanderlust -Dsonar.projectKey=wanderlust"
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv("sonar"){
+                        bat "\"${SONAR_HOME}\\bin\\sonar-scanner.bat\" -Dsonar.projectName=wanderlust -Dsonar.projectKey=wanderlust -Dsonar.token=%SONAR_TOKEN%"
+                    }
                 }
             }
         }
-        stage("OWASP Dependency Check"){
+        stage("OWASP Dependecy Check"){
             steps{
                 dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'dc'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
@@ -31,13 +36,27 @@ pipeline{
         }
         stage("Trivy File System Scan"){
             steps{
-                sh "trivy fs --format  table -o trivy-fs-report.html ."
+                bat "trivy fs --format table -o trivy-fs-report.html ."
             }
         }
-        stage("Deploy using Docker compose"){
+        
+        stage("Deploy using Docker compse"){
             steps{
-                sh "docker-compose up -d"
+                bat "docker-compose up -d"
             }
+        }
+        
+    }
+    
+    post {
+        always {
+            echo "Pipeline execution completed"
+        }
+        success {
+            echo "Pipeline executed successfully!"
+        }
+        failure {
+            echo "Pipeline failed! Check logs for details."
         }
     }
 }
